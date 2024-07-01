@@ -22,7 +22,7 @@ use crate::{
         CallPath,
     },
     type_system::{SubstTypes, TypeId},
-    TraitConstraint, TypeArgument, TypeEngine, TypeInfo, TypeSubstMap, UnifyCheck,
+    IncludeSelf, TraitConstraint, TypeArgument, TypeEngine, TypeInfo, TypeSubstMap, UnifyCheck,
 };
 
 use super::TryInsertingTraitImplOnFailure;
@@ -42,22 +42,6 @@ impl OrdWithEngines for TraitSuffix {
         self.name
             .cmp(&other.name)
             .then_with(|| self.args.cmp(&other.args, ctx))
-    }
-}
-
-impl<T: PartialEqWithEngines> PartialEqWithEngines for CallPath<T> {
-    fn eq(&self, other: &Self, ctx: &PartialEqWithEnginesContext) -> bool {
-        self.prefixes == other.prefixes
-            && self.suffix.eq(&other.suffix, ctx)
-            && self.is_absolute == other.is_absolute
-    }
-}
-impl<T: OrdWithEngines> OrdWithEngines for CallPath<T> {
-    fn cmp(&self, other: &Self, ctx: &OrdWithEnginesContext) -> Ordering {
-        self.prefixes
-            .cmp(&other.prefixes)
-            .then_with(|| self.suffix.cmp(&other.suffix, ctx))
-            .then_with(|| self.is_absolute.cmp(&other.is_absolute))
     }
 }
 
@@ -674,7 +658,7 @@ impl TraitMap {
 
         // a curried version of the decider protocol to use in the helper functions
         let decider = |left: TypeId, right: TypeId| unify_checker.check(left, right);
-        let mut all_types = type_id.extract_inner_types(engines);
+        let mut all_types = type_id.extract_inner_types(engines, IncludeSelf::No);
         all_types.insert(type_id);
         let all_types = all_types.into_iter().collect::<Vec<_>>();
         self.filter_by_type_inner(engines, all_types, decider)
@@ -752,7 +736,7 @@ impl TraitMap {
         };
         let mut trait_map = self.filter_by_type_inner(engines, vec![type_id], decider);
         let all_types = type_id
-            .extract_inner_types(engines)
+            .extract_inner_types(engines, IncludeSelf::No)
             .into_iter()
             .collect::<Vec<_>>();
         // a curried version of the decider protocol to use in the helper functions
